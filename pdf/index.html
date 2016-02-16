@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<head>
+<meta charset="UTF-8">
+<title>PDF DEMO</title>
+</head>
+<body>
+<!-- for legacy browsers add compatibility.js -->
+<script src="compatibility.js"></script>
+<script src="pdf.js"></script>
+<script src="pdf.viewer.js"></script>
+<script>
+pdfViewer.init({
+    url: 'calrgb.pdf',
+    pageRange: [1, 6],
+    bookmark: 3
+});
+</script>
+</body>
+</html>
