@@ -81,7 +81,7 @@
         return this;
     };
     PdfViewer.prototype.addPage = function(index, callback) { // 页面创建
-        var img = new Image,
+        var img = new Image(),
             self = this;
 
         img.onload = function() {
