@@ -4,7 +4,7 @@
  * 2）如果将每张pdf都分成单个canvas，操作效率低于image，且浏览器滚屏会卡顿。
  * 目前已知部分pdf文档在ie10/11浏览器下存在“CONSOLE6000: Warning: Unable to decode image: DataCloneError”（Warning: Dependent image isn't ready yet）问题，问题已提交pdf.js团队，暂未能得到解决方案。
  */
-/*jslint browser: true, devel: true, white: true */
+/*jslint browser: true, devel: true, white: true*/
 /*global window PDFJS */
 /*jslint this*/
 (function(global, PDFJS) {
@@ -125,8 +125,8 @@
         return this;
     };
     global.pdfViewer = {
-        init: function(opts) { // // 初始化，参数为对象
-            if (PDFJS === 'undefined') { // 需要依赖pdf.js
+        init: function(opts) { // 初始化，参数为对象
+            if (!PDFJS) { // 需要依赖pdf.js
                 return;
             }
             // PDFJS.disableWorker = true; // 跨域 due to CORS
