@@ -12,17 +12,17 @@
     var canvas = document.createElement('canvas');
     var ctx = canvas.getContext('2d');
     var pdf;
-    var loader;
+    var loader = '<div id="pdfViewerLoader" class="pdf-viewer-loader">Loading...<label>0%</label></div>';
     var PdfViewer = function(opts) { // 构造viewer
         this.element = opts.element || document.body; // element(optional, 渲染容器，默认追加到body)
         this.pages = []; // 缓存
-        this.pageRange = opts.pageRange || [1, 9999]; // rangeRange(optional, 文档页数范围，默认为当全全部pdf)
+        this.pageRange = Array.isArray(opts.pageRange) ? opts.pageRange.map(Number) : [1, 9999]; // rangeRange(optional, 文档页数范围，默认为当全全部pdf)
         this.currentPage = this.pageRange[0];
         this.url = opts.url || ''; // url(required, 文档，跨域需要远端开启可访问请求（未测）)
         this.scale = opts.scale || 1; // scale(optional, 放大比例，默认比例为1)
         this.width = opts.width; // width(optional, 宽，默认为等比例约束)
         this.height = opts.height; // height(optional, 高，默认为等比例约束)
-        this.bookmark = opts.bookmark || 1; // bookmark(optional, 书签，也即需要定位的页数，默认定位首页)
+        this.bookmark = parseInt(opts.bookmark, 10) || 1; // bookmark(optional, 书签，也即需要定位的页数，默认定位首页)
     };
 
     PdfViewer.prototype.init = function() { // 执行初始化
@@ -105,7 +105,7 @@
         }
     };
     PdfViewer.prototype.clear = function(opts) { // 重置
-        var img = this.element.querySelectorAll('.pdf-viewer-page');
+        var img = Array.prototype.slice.call(this.element.querySelectorAll('.pdf-viewer-page'));
         var percent = document.querySelector('#pdfViewerLoader label');
 
         img.forEach(function(item) {
@@ -113,20 +113,20 @@
         });
         this.element = opts.element || this.element;
         this.pages = [];
-        this.pageRange = opts.pageRange || this.pageRange;
+        this.pageRange = Array.isArray(opts.pageRange) ? opts.pageRange.map(Number) : this.pageRange;
         this.currentPage = this.pageRange[0];
         this.url = opts.url || this.url;
         this.scale = opts.scale || this.scale;
         this.width = opts.width || this.width;
         this.height = opts.height || this.height;
-        this.bookmark = opts.bookmark || this.bookmark;
+        this.bookmark = parseInt(opts.bookmark, 10) || this.bookmark;
         percent.innerHTML = '0%';
         percent.parentNode.style.display = 'block';
         return this;
     };
     global.pdfViewer = {
-        init: function(opts) { // 初始化，参数为对象
-            if (!PDFJS) { // 需要依赖pdf.js
+        init: function(opts) { // // 初始化，参数为对象
+            if (PDFJS === 'undefined') { // 需要依赖pdf.js
                 return;
             }
             // PDFJS.disableWorker = true; // 跨域 due to CORS
@@ -134,17 +134,15 @@
                 pdf = new PdfViewer(opts);
             }
             if (!document.querySelector('#pdfViewerLoader')) { // 创建进度提示
-                loader = document.createElement('div');
-                loader.id = 'pdfViewerLoader';
-                loader.className = 'pdf-viewer-loader';
-                loader.innerHTML = 'Loading...<label>0%</label>';
-                document.body.appendChild(loader);
+                pdf.element.insertAdjacentHTML('beforebegin', loader); // afterend
             }
             return pdf.init();
         },
         update: function(opts) { // 更新当前
             if (pdf) {
                 pdf.clear(opts).init();
+            } else {
+                this.init(opts);
             }
         }
     };
