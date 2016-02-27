@@ -2,6 +2,7 @@
  * pdf转为image为当前最优方案，原因如下：
  * 1）最初设想合并为一张canvas，但是浏览器针对大尺寸canvas有约束，如果pdf较多，则会出现无法正常渲染的状况。
  * 2）如果将每张pdf都分成单个canvas，操作效率低于image，且浏览器滚屏会卡顿。
+ * 3）如果开启分页模式，则直接渲染canvas。
  * 目前已知部分pdf文档在ie10/11浏览器下存在“CONSOLE6000: Warning: Unable to decode image: DataCloneError”（Warning: Dependent image isn't ready yet）问题，问题已提交pdf.js团队，暂未能得到解决方案。
  */
 /*jslint browser: true, devel: true, white: true*/
@@ -15,9 +16,10 @@
     var loader = '<div id="pdfViewerLoader" class="pdf-viewer-loader">Loading...<label>0%</label></div>';
     var PdfViewer = function(opts) { // 构造viewer
         this.element = opts.element || document.body; // element(optional, 渲染容器，默认追加到body)
+        this.paging = opts.paging || null; // paging(optional, 默认不开启翻页模式)
         this.pages = []; // 缓存
         this.pageRange = Array.isArray(opts.pageRange) ? opts.pageRange.map(Number) : [1, 9999]; // rangeRange(optional, 文档页数范围，默认为当全全部pdf)
-        this.currentPage = this.pageRange[0];
+        this.currentPage = this.paging || this.pageRange[0];
         this.url = opts.url || ''; // url(required, 文档，跨域需要远端开启可访问请求（未测）)
         this.scale = opts.scale || 1; // scale(optional, 放大比例，默认比例为1)
         this.width = opts.width; // width(optional, 宽，默认为等比例约束)
@@ -26,12 +28,18 @@
     };
 
     PdfViewer.prototype.init = function() { // 执行初始化
-        var self = this;
         var percent = document.querySelector('#pdfViewerLoader label');
 
+        return this.renderPage(percent);
+    };
+    PdfViewer.prototype.renderPage = function(percent) { // 页面渲染
+        var self = this;
+
+        percent = percent || document.querySelector('#pdfViewerLoader label');
         PDFJS.getDocument(self.url).then(function(pdf) { // 载入pdf (promise)
             var getPage;
 
+            self.numPages = pdf.numPages;
             getPage = function() { // 得到指定页面
                 pdf.getPage(self.currentPage).then(function(page) {
                     var viewport = page.getViewport(self.scale);
@@ -46,16 +54,21 @@
                         viewport: viewport
                     };
                     page.render(renderContext).then(function() { // canvas入缓存
-                        self.pages.push(canvas.toDataURL('image/jpeg')); // 压缩图片（留空为png）
-                        if (self.currentPage < self.pageRange[1]) {
-                            self.currentPage += 1;
-                            percent.innerHTML = parseInt(self.currentPage / self.pageRange[1] * 100) + '%';
-                            getPage();
-                        } else { // 所有指定页面载入完毕
+                        if (self.paging === null) { // 是否为翻页模式
+                            self.pages.push(canvas.toDataURL('image/jpeg')); // 压缩图片（留空为png）
+                            if (self.currentPage < self.pageRange[1]) {
+                                self.currentPage += 1;
+                                percent.innerHTML = parseInt(self.currentPage / self.pageRange[1] * 100) + '%';
+                                getPage();
+                            } else { // 所有指定页面载入完毕
+                                percent.parentNode.style.display = 'none';
+                                self.pages.forEach(function(ignore, index) { // named ignore just for jslint
+                                    self.addPage(index, self.showPage);
+                                });
+                            }
+                        } else {
                             percent.parentNode.style.display = 'none';
-                            self.pages.forEach(function(ignore, index) { // named ignore just for jslint
-                                self.addPage(index, self.showPage);
-                            });
+                            self.element.appendChild(canvas);
                         }
                     });
                 });
@@ -105,16 +118,22 @@
         }
     };
     PdfViewer.prototype.clear = function(opts) { // 重置
-        var img = Array.prototype.slice.call(this.element.querySelectorAll('.pdf-viewer-page'));
+        var element = this.element;
+        var img = Array.prototype.slice.call(element.querySelectorAll('.pdf-viewer-page'));
+        var soloPage = element.querySelector('canvas');
         var percent = document.querySelector('#pdfViewerLoader label');
 
         img.forEach(function(item) {
-            item.parentNode.removeChild(item);
+            element.removeChild(item);
         });
+        if (soloPage) {
+            element.removeChild(soloPage);
+        }
         this.element = opts.element || this.element;
+        this.paging = opts.paging || this.paging;
         this.pages = [];
         this.pageRange = Array.isArray(opts.pageRange) ? opts.pageRange.map(Number) : this.pageRange;
-        this.currentPage = this.pageRange[0];
+        this.currentPage = this.paging || this.pageRange[0];
         this.url = opts.url || this.url;
         this.scale = opts.scale || this.scale;
         this.width = opts.width || this.width;
@@ -144,6 +163,30 @@
             } else {
                 this.init(opts);
             }
+        },
+        prevPage: function() { // 上页
+            if (!pdf || (pdf && !pdf.paging) || (pdf && pdf.currentPage <= 1)) {
+                return;
+            }
+            pdf.currentPage -= 1;
+            pdf.renderPage();
+        },
+        nextPage: function() { // 下页
+            if (!pdf || (pdf && !pdf.paging) || (pdf && pdf.currentPage >= pdf.numPages)) {
+                return;
+            }
+            pdf.currentPage += 1;
+            pdf.renderPage();
+        },
+        getPage: function() { // 得到当前页
+            return pdf ? pdf.currentPage : null;
+        },
+        setPage: function(pageNum) { // 指定页
+            if (!pdf || (pdf && !pdf.paging) || (pdf && pageNum > pdf.numPages) || (pdf && pageNum < 1)) {
+                return;
+            }
+            pdf.currentPage = pageNum;
+            pdf.renderPage();
         }
     };
     return global.pdfViewer;
